@@ -253,7 +253,14 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
     });
     setIsRedirecting(true);
     await new Promise((resolve) => window.setTimeout(resolve, 50));
-    window.location.replace(paymentSession.paymentUrl);
+
+    // Hosted payment providers reject iframe navigation. Assigning the top-level
+    // location keeps this same-tab redirect outside the embedded preview frame.
+    if (window.top && window.top !== window.self) {
+      window.top.location.replace(paymentSession.paymentUrl);
+    } else {
+      window.location.replace(paymentSession.paymentUrl);
+    }
   };
 
   const handlePlaceOrder = async () => {
