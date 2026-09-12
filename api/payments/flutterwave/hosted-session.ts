@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { createServer } from "../../../server";
+import { createServer } from "../../../server/index.js";
 
 let app: ReturnType<typeof createServer>;
 
