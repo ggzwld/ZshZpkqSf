@@ -1,11 +1,23 @@
-import serverless from "serverless-http";
+import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createServer } from "../../../server";
 
-const handler = serverless(createServer());
+let app: ReturnType<typeof createServer>;
 
-export default async function hostedSessionHandler(req: any, res: any) {
+try {
+  app = createServer();
+} catch (error) {
+  console.error("[v0] Hosted session API initialization failed", {
+    message: error instanceof Error ? error.message : "Unknown initialization error",
+  });
+}
+
+export default function hostedSessionHandler(req: VercelRequest, res: VercelResponse) {
   try {
-    await handler(req, res);
+    if (!app) {
+      return res.status(500).json({ error: "Payment service is unavailable." });
+    }
+
+    return app(req, res);
   } catch (error) {
     console.error("[v0] Hosted session API failed", {
       method: req.method,
@@ -14,7 +26,7 @@ export default async function hostedSessionHandler(req: any, res: any) {
     });
 
     if (!res.headersSent) {
-      res.status(500).json({ error: "Payment service failed while preparing checkout." });
+      return res.status(500).json({ error: "Payment service failed while preparing checkout." });
     }
   }
 }
