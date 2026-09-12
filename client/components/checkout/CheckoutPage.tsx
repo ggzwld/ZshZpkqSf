@@ -236,9 +236,25 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
     } finally {
       window.clearTimeout(timeout);
     }
-    const paymentSession = (await sessionResponse.json()) as FlutterwaveHostedSession | { error?: string };
-    if (!sessionResponse.ok || !("paymentUrl" in paymentSession)) {
-      throw new Error(("error" in paymentSession && paymentSession.error) || "Unable to prepare secure checkout.");
+    const contentType = sessionResponse.headers.get("content-type") || "";
+    const responseText = await sessionResponse.text();
+    let paymentSession: FlutterwaveHostedSession | { error?: string } | null = null;
+
+    if (contentType.includes("application/json")) {
+      try {
+        paymentSession = JSON.parse(responseText) as FlutterwaveHostedSession | { error?: string };
+      } catch {
+        throw new Error(`Payment service returned invalid JSON (HTTP ${sessionResponse.status}).`);
+      }
+    }
+
+    if (!sessionResponse.ok || !paymentSession || !("paymentUrl" in paymentSession)) {
+      const errorMessage = paymentSession && "error" in paymentSession ? paymentSession.error : undefined;
+      const responseHint = responseText.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 180);
+      throw new Error(
+        errorMessage ||
+          `Payment service returned HTTP ${sessionResponse.status}${responseHint ? `: ${responseHint}` : "."}`,
+      );
     }
 
     savePendingCheckout({
