@@ -236,25 +236,9 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
     } finally {
       window.clearTimeout(timeout);
     }
-    const contentType = sessionResponse.headers.get("content-type") || "";
-    const responseText = await sessionResponse.text();
-    let paymentSession: FlutterwaveHostedSession | { error?: string } | null = null;
-
-    if (contentType.includes("application/json")) {
-      try {
-        paymentSession = JSON.parse(responseText) as FlutterwaveHostedSession | { error?: string };
-      } catch {
-        throw new Error(`Payment service returned invalid JSON (HTTP ${sessionResponse.status}).`);
-      }
-    }
-
-    if (!sessionResponse.ok || !paymentSession || !("paymentUrl" in paymentSession)) {
-      const errorMessage = paymentSession && "error" in paymentSession ? paymentSession.error : undefined;
-      const responseHint = responseText.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 180);
-      throw new Error(
-        errorMessage ||
-          `Payment service returned HTTP ${sessionResponse.status}${responseHint ? `: ${responseHint}` : "."}`,
-      );
+    const paymentSession = (await sessionResponse.json()) as FlutterwaveHostedSession | { error?: string };
+    if (!sessionResponse.ok || !("paymentUrl" in paymentSession)) {
+      throw new Error(("error" in paymentSession && paymentSession.error) || "Unable to prepare secure checkout.");
     }
 
     savePendingCheckout({
@@ -268,10 +252,10 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
       usePoints,
     });
     setIsRedirecting(true);
-    await new Promise((resolve) => window.setTimeout(resolve, 50));
+    document.body.style.overflow = "hidden";
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" as ScrollBehavior });
 
-    // Hosted payment providers reject iframe navigation. Assigning the top-level
-    // location keeps this same-tab redirect outside the embedded preview frame.
+    // Leave the app as a full-document navigation so the provider owns the viewport.
     if (window.top && window.top !== window.self) {
       window.top.location.replace(paymentSession.paymentUrl);
     } else {
