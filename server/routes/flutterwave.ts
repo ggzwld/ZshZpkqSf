@@ -233,8 +233,15 @@ export const createFlutterwaveHostedSession: RequestHandler = async (req, res) =
   let txRef: string | undefined;
 
   try {
-    const { orderId } = req.body as { orderId?: string };
+    const { orderId, expectedAmount, expectedCurrency } = req.body as {
+      orderId?: string;
+      expectedAmount?: number;
+      expectedCurrency?: string | null;
+    };
     if (!orderId) return res.status(400).json({ error: "Order ID is required" });
+    if (!Number.isFinite(expectedAmount) || expectedAmount <= 0 || !expectedCurrency) {
+      return res.status(400).json({ error: "Checkout amount is invalid" });
+    }
 
     const order = await getAuthenticatedOrder(orderId, req.headers.authorization);
     if (order.payment_status === "paid") {
@@ -244,8 +251,17 @@ export const createFlutterwaveHostedSession: RequestHandler = async (req, res) =
     const { defaultCurrency, secretKey } = getConfiguration();
     const currency = String(order.currency || defaultCurrency).toUpperCase();
     const amount = Number(order.total_amount);
+    const normalizedExpectedCurrency = String(expectedCurrency).toUpperCase();
     if (!Number.isFinite(amount) || amount <= 0) {
       return res.status(400).json({ error: "Order total is invalid" });
+    }
+    if (
+      Math.abs(amount - Number(expectedAmount)) > 0.005 ||
+      currency !== normalizedExpectedCurrency
+    ) {
+      return res.status(409).json({
+        error: "Checkout total changed. Please review your order before paying again.",
+      });
     }
 
     txRef = `sheraton-${order.order_number}-${crypto.randomUUID()}`;
