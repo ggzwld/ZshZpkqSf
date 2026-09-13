@@ -252,8 +252,12 @@ const CheckoutPage: React.FC<CheckoutPageProps> = ({
       usePoints,
     });
     setIsRedirecting(true);
+    document.documentElement.style.overflow = "hidden";
     document.body.style.overflow = "hidden";
     window.scrollTo({ top: 0, left: 0, behavior: "instant" as ScrollBehavior });
+
+    // Give the browser one layout pass before full-document navigation.
+    await new Promise((resolve) => window.setTimeout(resolve, 100));
 
     // Leave the app as a full-document navigation so the provider owns the viewport.
     if (window.top && window.top !== window.self) {
